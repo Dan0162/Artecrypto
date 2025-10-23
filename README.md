@@ -1,5 +1,5 @@
 ## Proyecto: ArteCrypto — Scripts SQL
-```markdown
+
 ## Project: ArteCrypto — SQL Scripts
 
 English README for the set of SQL scripts included in this repository. The scripts create objects (functions, stored procedures, triggers), sample data loads and usage examples for the "ArteCrypto" system (auctions / NFTs).
@@ -34,3 +34,4 @@ Main files included in the root folder:
 
 ##Table relationships diagram
 <img width="1894" height="1679" alt="Untitled" src="https://github.com/user-attachments/assets/011fec19-8825-427b-b644-19763cfd62f8" />
+
