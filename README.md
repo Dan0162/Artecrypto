@@ -31,3 +31,6 @@ Main files included in the root folder:
 - Microsoft SQL Server (any edition compatible with the features used).
 - A user with permissions to create databases and objects (e.g. `sa` or a user with `db_owner` role).
 - SQL Server Management Studio (SSMS) or the `sqlcmd` utility to run the scripts from PowerShell/terminal.
+
+##Table relationships diagram
+<img width="1894" height="1679" alt="Untitled" src="https://github.com/user-attachments/assets/011fec19-8825-427b-b644-19763cfd62f8" />
