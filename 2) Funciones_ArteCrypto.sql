@@ -1,4 +1,4 @@
--- ufn_GenerarHash: returns SHA2_256 hash of NFT content
+-- ufn_GenerarHash: devuelve hash SHA2_256 del contenido del NFT
 CREATE OR ALTER FUNCTION ufn_GenerarHash(
     @ID_Formato INT, 
     @ID_Tipo INT,
@@ -22,7 +22,7 @@ BEGIN
     RETURN CONVERT(VARCHAR(64), @hash, 2);
 END;
 GO
--- ufn_ObtenerPrecioDefault: returns active base price for a format
+-- ufn_ObtenerPrecioDefault: retorna precio base activo por formato
 CREATE OR ALTER FUNCTION ufn_ObtenerPrecioDefault(
     @ID_Formato INT
 )
@@ -31,7 +31,7 @@ AS
 BEGIN
     DECLARE @Precio MONEY;
     
-    -- Find the most recent active base price for the format
+    -- Buscar el precio base activo más reciente para el formato
     SELECT TOP 1 @Precio = Precio_Base
     FROM Precio_Default
     WHERE ID_Formato = @ID_Formato
@@ -40,11 +40,11 @@ BEGIN
         AND (Fecha_Fin_Vigencia IS NULL OR Fecha_Fin_Vigencia >= GETDATE())
     ORDER BY Fecha_Inicio_Vigencia DESC;
     
-    -- If no price is configured, return 1.5
+    -- Si no hay precio configurado, retornar 1.5
     RETURN ISNULL(@Precio, 1.5); 
 END;
 GO
--- ufn_Validación: validates size and dimensions using the Error table
+-- ufn_Validación: valida dimensión y tamaño según tabla Error
 CREATE FUNCTION ufn_Validación(
     @Tamaño DECIMAL(10,2), 
     @Largo DECIMAL(10,2), 
@@ -64,7 +64,7 @@ BEGIN
     DECLARE @AnchoMax DECIMAL(10,2);
     DECLARE @AnchoMin DECIMAL(10,2);
 
-    -- Get validation values from the Error table
+    -- Obtener valores de validación desde tabla Error
     SELECT @TamañoMax = Valor FROM Error WHERE Id_Error = 5;
     SELECT @TamañoMin = Valor FROM Error WHERE Id_Error = 6;
     SELECT @LargoMax = Valor FROM Error WHERE Id_Error = 2;
@@ -72,11 +72,11 @@ BEGIN
     SELECT @AnchoMax = Valor FROM Error WHERE Id_Error = 1;
     SELECT @AnchoMin = Valor FROM Error WHERE Id_Error = 3;
 
-    -- Initialize as valid
+    -- Inicializar como válido
     INSERT INTO @Resultados (CodigoError, MensajeError, EsValido)
     VALUES (1, 'Validación exitosa', 1);
 
-    -- Validate size
+    -- Validar tamaño
     IF (@Tamaño > @TamañoMax)
     BEGIN
         INSERT INTO @Resultados (CodigoError, MensajeError, EsValido)
@@ -89,7 +89,7 @@ BEGIN
         VALUES (-2, 'Tamaño es menor al mínimo permitido (' + CAST(@TamañoMin AS VARCHAR) + ')', 0);
     END
     
-    -- Validate length (height)
+    -- Validar largo (alto)
     IF (@Largo > @LargoMax)
     BEGIN
         INSERT INTO @Resultados (CodigoError, MensajeError, EsValido)
@@ -102,7 +102,7 @@ BEGIN
         VALUES (-4, 'Alto es menor al mínimo permitido (' + CAST(@LargoMin AS VARCHAR) + ')', 0);
     END
     
-    -- Validate width
+    -- Validar ancho
     IF (@Ancho > @AnchoMax)
     BEGIN
         INSERT INTO @Resultados (CodigoError, MensajeError, EsValido)
@@ -115,7 +115,7 @@ BEGIN
         VALUES (-6, 'Ancho es menor al mínimo permitido (' + CAST(@AnchoMin AS VARCHAR) + ')', 0);
     END
 
-    -- If there are errors, remove the "validation successful" record
+    -- Si hay errores, eliminar el registro de "validación exitosa"
     IF EXISTS (SELECT 1 FROM @Resultados WHERE EsValido = 0)
     BEGIN
         DELETE FROM @Resultados WHERE EsValido = 1;
@@ -124,7 +124,7 @@ BEGIN
     RETURN;
 END;
 GO
--- ufn_ObtenerPrecioActualSubasta: returns the highest bid or the initial price
+-- ufn_ObtenerPrecioActualSubasta: devuelve la oferta más alta o precio inicial
 CREATE OR ALTER FUNCTION ufn_ObtenerPrecioActualSubasta(
     @ID_Subasta INT
 )
@@ -133,14 +133,14 @@ AS
 BEGIN
     DECLARE @PrecioActual MONEY;
     
-    -- Get the highest active bid
+    -- Obtener la oferta más alta activa
     SELECT TOP 1 @PrecioActual = Monto
     FROM Puja
     WHERE ID_Subasta = @ID_Subasta
         AND Estado IN (SELECT ID_EstadoPuja FROM Estado_Puja WHERE Nombre IN ('Activa', 'Ganadora'))
     ORDER BY Monto DESC, Fecha ASC; -- Mayor monto, primera en caso de empate
     
-    -- If there are no bids, return the NFT's initial price
+    -- Si no hay ofertas, retornar el precio inicial del NFT
     IF @PrecioActual IS NULL
     BEGIN
         SELECT @PrecioActual = n.Precio
@@ -153,7 +153,7 @@ BEGIN
 END;
 GO
 
--- ufn_CalcularOfertaMinima: calculates 5% over the current price
+-- ufn_CalcularOfertaMinima: calcula 5% sobre el precio actual
 CREATE OR ALTER FUNCTION ufn_CalcularOfertaMinima(
     @ID_Subasta INT
 )
@@ -163,10 +163,10 @@ BEGIN
     DECLARE @PrecioActual MONEY;
     DECLARE @OfertaMinima MONEY;
     
-    -- Get current price
+    -- Obtiene precio actual
     SET @PrecioActual = dbo.ufn_ObtenerPrecioActualSubasta(@ID_Subasta);
     
-    -- Calculate the additional 5%
+    -- Calcula el 5% adicional
     SET @OfertaMinima = @PrecioActual * 1.05;
     
     RETURN @OfertaMinima;

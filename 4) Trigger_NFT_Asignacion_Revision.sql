@@ -1,4 +1,4 @@
--- trg_NFT_AfterInsert_AsignarRevision: assigns reviews after inserting NFT
+-- trg_NFT_AfterInsert_AsignarRevision: asigna revisiones tras insertar NFT
 CREATE OR ALTER TRIGGER trg_NFT_AfterInsert_AsignarRevision
 ON NFT 
 AFTER INSERT
@@ -10,12 +10,12 @@ BEGIN
     DECLARE @CuradorAsignado INT;
     DECLARE @EstadoPendienteID INT;
 
-        -- Get ID for the 'Pending' state
+    -- Obtener ID del estado 'Pendiente'
     SELECT @EstadoPendienteID = ID_EstadoNFT 
     FROM Estado_NFT 
     WHERE Nombre = 'Pendiente';
 
-        -- Find the curator with the fewest assigned pending reviews
+    -- Busca al curador con menos revisiones pendientes asignadas
     SELECT TOP 1 @CuradorAsignado = p.ID_Persona
     FROM Persona p
     INNER JOIN Entidad_Rol er ON p.ID_Persona = er.ID_Persona
@@ -26,7 +26,7 @@ BEGIN
     GROUP BY p.ID_Persona
     ORDER BY COUNT(r.ID_Revision) ASC;
 
-        -- If no curator is found, take the first available
+    -- Por si no se encuentra un curador, tomar el primero disponible
     IF @CuradorAsignado IS NULL
     BEGIN
         SELECT TOP 1 @CuradorAsignado = p.ID_Persona
@@ -37,7 +37,7 @@ BEGIN
         ORDER BY p.ID_Persona;
     END
 
-        -- Insert into the Revision table for each inserted NFT
+    -- Realiza el Insert en la Tabla Revision para cada NFT insertado
     INSERT INTO Revision (ID_Persona, ID_NFT, ID_EstadoNFT, Fecha_Inicio, Fecha_Final, Comentario)
     SELECT 
         @CuradorAsignado,

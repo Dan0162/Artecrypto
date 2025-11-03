@@ -1,46 +1,46 @@
--- Tipo_Entidad: list of entity types
+-- Tipo_Entidad: lista tipos de entidad
 CREATE TABLE Tipo_Entidad(
     ID_TipoEntidad INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(100) NOT NULL
 );
 
--- Estado_NFT: possible review states
+-- Estado_NFT: estados posibles de revisión
 CREATE TABLE Estado_NFT(
     ID_EstadoNFT INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(30) NOT NULL
 );
 
--- Tipo: NFT categories
+-- Tipo: categorías de NFT
 CREATE TABLE Tipo(
     ID_Tipo INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(30) NOT NULL
 );
 
--- Formato: file formats
+-- Formato: formatos de archivo
 CREATE TABLE Formato(
     ID_Formato INT PRIMARY KEY IDENTITY(1,1),
     Nombre VARCHAR(30) NOT NULL
 );
 
--- Estado_Subasta: auction states
+-- Estado_Subasta: estados de la subasta
 CREATE TABLE Estado_Subasta(
     ID_EstadoSubasta INT PRIMARY KEY IDENTITY(1,1),
     Nombre VARCHAR(30) NOT NULL
 );
 
--- Estado_Puja: bid states
+-- Estado_Puja: estados de las pujas
 CREATE TABLE Estado_Puja(
     ID_EstadoPuja INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(100) NOT NULL
 );
 
--- Tipo_Transaccion: wallet transaction types
+-- Tipo_Transaccion: tipos de movimiento en billetera
 CREATE TABLE Tipo_Transaccion(
     ID_TipoTransaccion INT PRIMARY KEY IDENTITY(1,1),
     Nombre VARCHAR(50) NOT NULL
 );
 
--- Persona: system users
+-- Persona: usuarios del sistema
 CREATE TABLE Persona(
     ID_Persona INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(100) NOT NULL,
@@ -49,7 +49,7 @@ CREATE TABLE Persona(
     CONSTRAINT UQ_Correo UNIQUE (Correo)
 );
 
--- Entidad_Rol: person -> role relations
+-- Entidad_Rol: relaciones persona -> rol
 CREATE TABLE Entidad_Rol(
     ID_EntidadRol INT IDENTITY(1,1),
     ID_Persona INT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE Entidad_Rol(
     FOREIGN KEY (ID_TipoEntidad) REFERENCES Tipo_Entidad(ID_TipoEntidad)
 );
 
--- NFT: main record for artworks
+-- NFT: registro principal de obras
 CREATE TABLE NFT(
     ID_NFT INT PRIMARY KEY IDENTITY(1,1),
     ID_Persona INT NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE NFT(
     CONSTRAINT CHK_Dimensiones_Positivas CHECK (Ancho > 0 AND Alto > 0 AND Tamaño > 0)
 );
 
--- Revision: history and review state by curators
+-- Revision: historial y estado de revisión por curadores
 CREATE TABLE Revision(
     ID_Revision INT PRIMARY KEY IDENTITY(1,1),
     ID_Persona INT NOT NULL,
@@ -98,7 +98,7 @@ CREATE TABLE Revision(
     CONSTRAINT CHK_Fecha_Revision CHECK (Fecha_Final IS NULL OR Fecha_Final >= Fecha_Inicio)
 );
 
--- Subasta: automatic and manual auctions
+-- Subasta: subastas automáticas y manuales
 CREATE TABLE Subasta(
     ID_Subasta INT PRIMARY KEY IDENTITY(1,1),
     ID_EstadoSubasta INT NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE Subasta(
     CONSTRAINT CHK_Fecha_Subasta CHECK (Fecha_Final > Fecha_Inicio)
 );
 
--- Puja: auction bids
+-- Puja: ofertas en subastas
 CREATE TABLE Puja(
     ID_Puja INT PRIMARY KEY IDENTITY(1,1),
     ID_Subasta INT NOT NULL,
@@ -127,7 +127,7 @@ CREATE TABLE Puja(
     CONSTRAINT CHK_Monto_Positivo CHECK (Monto > 0)
 );
 
--- Registro_NFT: transfers / acquisitions
+-- Registro_NFT: transferencias/adquisiciones
 CREATE TABLE Registro_NFT(
     ID_RegistroNFT INT PRIMARY KEY IDENTITY(1,1),
     ID_Persona INT NOT NULL,
@@ -139,7 +139,7 @@ CREATE TABLE Registro_NFT(
     FOREIGN KEY (ID_Subasta) REFERENCES Subasta(ID_Subasta)
 );
 
--- Billetera: balance per person (wallet)
+-- Billetera: saldo por persona
 CREATE TABLE Billetera(
     ID_Billetera INT PRIMARY KEY IDENTITY(1,1),
     ID_Persona INT NOT NULL,
@@ -150,7 +150,7 @@ CREATE TABLE Billetera(
     CONSTRAINT CHK_Saldo_No_Negativo CHECK (Saldo_Disponible >= 0 AND Saldo_Reservado >= 0)
 );
 
--- Transaccion_Billetera: wallet movements
+-- Transaccion_Billetera: movimientos de billetera
 CREATE TABLE Transaccion_Billetera(
     ID_Transaccion INT PRIMARY KEY IDENTITY(1,1),
     ID_Billetera INT NOT NULL,
@@ -164,14 +164,14 @@ CREATE TABLE Transaccion_Billetera(
     FOREIGN KEY (ID_Subasta) REFERENCES Subasta(ID_Subasta)
 );
 
--- Error: validation parameters and limits
+-- Error: parámetros de validación y límites
 CREATE TABLE Error(
     Id_Error INT PRIMARY KEY IDENTITY(1,1),
     Nombre NVARCHAR(100) NOT NULL,
     Valor DECIMAL(10,2) NOT NULL
 );
 
--- Correo_log: notification log
+-- Correo_log: registro de notificaciones
 CREATE TABLE Correo_log(
     ID_Correo INT PRIMARY KEY IDENTITY(1,1),
     ID_Persona INT,
@@ -180,7 +180,7 @@ CREATE TABLE Correo_log(
     FOREIGN KEY (ID_Persona) REFERENCES Persona(ID_Persona)
 );
 
--- Precio_Default: base prices per format
+-- Precio_Default: precios base por formato
 CREATE TABLE Precio_Default(
     ID_PrecioDefault INT PRIMARY KEY IDENTITY(1,1),
     ID_Formato INT NOT NULL,

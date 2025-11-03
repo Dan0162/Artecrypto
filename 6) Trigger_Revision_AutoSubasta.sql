@@ -5,7 +5,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
 
-    -- Check if ANY revision was approved
+    -- Verificar si se aprobó ALGUNA revisión
     IF NOT EXISTS (
         SELECT 1
         FROM INSERTED i
@@ -26,7 +26,7 @@ BEGIN
     DECLARE @ID_Coleccionista INT;
     DECLARE @Mensaje NVARCHAR(200);
 
-    -- Get ID for the 'Active' state
+    -- Obtener ID del estado 'Activa'
     SELECT @EstadoActivaID = ID_EstadoSubasta
     FROM Estado_Subasta
     WHERE Nombre = 'Activa';
@@ -37,7 +37,7 @@ BEGIN
         RETURN;
     END
 
-    -- Get approved NFT with its price and format data
+    -- Obtener NFT aprobado con sus datos de precio y formato
     SELECT TOP 1 
         @ID_NFT = i.ID_NFT,
         @NombreNFT = n.Nombre,
@@ -54,23 +54,23 @@ BEGIN
           AND s.ID_EstadoSubasta = @EstadoActivaID
       );
 
-    -- If there is no valid NFT, return error
+    -- Si no hay NFT válido, retornar error
     IF @ID_NFT IS NULL
     BEGIN
         RAISERROR('No se pudo encontrar un NFT aprobado válido para crear la subasta. Puede que ya exista una subasta activa para este NFT.', 16, 1);
         RETURN;
     END
 
-    -- Get default price for the format
+    -- Obtener precio default del formato
     SET @PrecioDefault = dbo.ufn_ObtenerPrecioDefault(@ID_Formato);
 
-    -- Determine initial price: use the greater between NFT price and default price
+    -- Determinar precio inicial: usar el mayor entre precio del NFT y precio default
     IF @PrecioNFT >= @PrecioDefault
         SET @PrecioInicial = @PrecioNFT;
     ELSE
         SET @PrecioInicial = @PrecioDefault;
 
-    -- Create auction with the determined initial price
+    -- Crear subasta con el precio inicial determinado
     INSERT INTO Subasta (
         ID_EstadoSubasta, 
         ID_NFT, 
@@ -86,11 +86,11 @@ BEGIN
         CONCAT('Subasta - ', @NombreNFT),
         @PrecioInicial,  -- Usar el precio calculado
         GETDATE(),
-        DATEADD(HOUR, 72, GETDATE()),
+        DATEADD(SECOND, 180, GETDATE()),
         NULL
     );
 
-    -- Notify collectors USING CURSOR
+    -- Notificar coleccionistas CON CURSOR
     SET @Mensaje = CONCAT('Nueva subasta disponible: "', @NombreNFT, '" - Precio inicial: ', @PrecioInicial, ' ETH');
     
     DECLARE cur_Coleccionistas CURSOR FOR

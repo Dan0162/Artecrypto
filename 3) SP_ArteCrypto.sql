@@ -1,9 +1,9 @@
 -- ============================================================================
--- ARTECRYPTO - STORED PROCEDURES
+-- ARTECRYPTO - PROCEDIMIENTOS ALMACENADOS
 -- ============================================================================
 
 -- ============================================================================
--- SP 1: CREATE NFT
+-- SP 1: CREAR NFT 
 -- ============================================================================
 CREATE OR ALTER PROCEDURE usp_CrearNFT
     @ID_Persona INT,
@@ -28,57 +28,57 @@ BEGIN
         DECLARE @ID_NFT_Creado INT;
         DECLARE @ErrorCount INT = 0;
         
-    -- Create temporary table for errors
+        -- Crear tabla temporal para errores
         CREATE TABLE #Errores (
             NumeroError INT IDENTITY(1,1),
             MensajeError NVARCHAR(500)
         );
         
-    -- 1. VALIDATE DIMENSIONS AND SIZE (MULTIPLE ERRORS)
+        -- 1. VALIDAR DIMENSIONES Y TAMAÑO (MÚLTIPLES ERRORES)
         INSERT INTO #Errores (MensajeError)
         SELECT MensajeError
         FROM dbo.ufn_Validación(@Tamaño, @Alto, @Ancho)
         WHERE EsValido = 0;
         
-    -- 2. VALIDATE THAT THE FORMAT EXISTS
+        -- 2. VALIDAR QUE EL FORMATO EXISTA
         IF NOT EXISTS (SELECT 1 FROM Formato WHERE ID_Formato = @ID_Formato)
         BEGIN
             INSERT INTO #Errores (MensajeError) 
             VALUES ('El formato especificado no existe');
         END
         
-    -- 3. VALIDATE THAT THE TYPE EXISTS
+        -- 3. VALIDAR QUE EL TIPO EXISTA
         IF NOT EXISTS (SELECT 1 FROM Tipo WHERE ID_Tipo = @ID_Tipo)
         BEGIN
             INSERT INTO #Errores (MensajeError) 
             VALUES ('El tipo de NFT especificado no existe');
         END
         
-    -- 4. VALIDATE THAT THE PERSON EXISTS
+        -- 4. VALIDAR QUE LA PERSONA EXISTA
         IF NOT EXISTS (SELECT 1 FROM Persona WHERE ID_Persona = @ID_Persona)
         BEGIN
             INSERT INTO #Errores (MensajeError) 
             VALUES ('La persona especificada no existe');
         END
         
-    -- 5. VALIDATE NAME IS NOT EMPTY
+        -- 5. VALIDAR NOMBRE NO VACÍO
         IF LTRIM(RTRIM(ISNULL(@Nombre, ''))) = ''
         BEGIN
             INSERT INTO #Errores (MensajeError) 
             VALUES ('El nombre del NFT no puede estar vacío');
         END
         
-    -- 6. VALIDATE PRICE IS NOT NEGATIVE
+        -- 6. VALIDAR PRECIO NO NEGATIVO
         IF @Precio < 0
         BEGIN
             INSERT INTO #Errores (MensajeError) 
             VALUES ('El precio no puede ser negativo');
         END
         
-    -- Get error count
+        -- Obtener conteo de errores
         SELECT @ErrorCount = COUNT(*) FROM #Errores;
         
-    -- If there are errors, show them and exit
+        -- Si hay errores, mostrarlos y salir
         IF @ErrorCount > 0
         BEGIN
             DECLARE @MensajeFinal NVARCHAR(MAX) = 'Se encontraron ' + CAST(@ErrorCount AS VARCHAR) + ' error(es):' + CHAR(13) + CHAR(10);
@@ -87,15 +87,14 @@ BEGIN
                    'Error ' + CAST(NumeroError AS VARCHAR) + ': ' + MensajeError + CHAR(13) + CHAR(10)
             FROM #Errores
             ORDER BY NumeroError;
-            
-            PRINT @MensajeFinal;
+
             THROW 50001, @MensajeFinal, 1;
         END
         
-    -- 7. GENERATE UNIQUE HASH
+        -- 7. GENERAR HASH ÚNICO
         SET @Hash = dbo.ufn_GenerarHash(@ID_Formato, @ID_Tipo, @Nombre, @Descripcion);
         
-    -- Verify that the hash does not exist
+        -- Verificar que el hash no exista
         IF EXISTS (SELECT 1 FROM NFT WHERE hash_NFT = @Hash)
         BEGIN
             INSERT INTO #Errores (MensajeError) 
@@ -106,7 +105,7 @@ BEGIN
             THROW 50002, @MensajeFinal, 1;
         END
         
-    -- 8. ASSIGN PRICE
+        -- 8. ASIGNAR PRECIO
         IF @Precio = 0
         BEGIN
             SET @PrecioFinal = dbo.ufn_ObtenerPrecioDefault(@ID_Formato);
@@ -116,7 +115,7 @@ BEGIN
             SET @PrecioFinal = @Precio;
         END
         
-    -- 9. INSERT NFT
+        -- 9. INSERTAR NFT
         INSERT INTO NFT (
             ID_Persona, ID_Formato, ID_Tipo, Nombre, hash_NFT,
             Descripcion, Tamaño, Ancho, Alto, Precio, Fecha_Creacion
@@ -141,7 +140,7 @@ BEGIN
             THROW 50012, @MensajeFinal, 1;
         END
         
-    -- 10. SEND NOTIFICATION TO THE ARTIST
+        -- 10. ENVIAR NOTIFICACIÓN AL ARTISTA
         SELECT @NombrePersona = Nombre FROM Persona WHERE ID_Persona = @ID_Persona;
         
         INSERT INTO Correo_log (ID_Persona, Descripcion)
@@ -154,7 +153,7 @@ BEGIN
 
         PRINT 'NFT creado exitosamente. ID: ' + CAST(@ID_NFT_Creado AS VARCHAR);
         
-    -- Clean up temporary table
+        -- Limpiar tabla temporal
         DROP TABLE #Errores;
         
         COMMIT TRANSACTION;
@@ -174,7 +173,7 @@ GO
 
 
 -- ============================================================================
--- SP 2: APPROVE NFT
+-- SP 2: APROBAR NFT
 -- ============================================================================
 CREATE OR ALTER PROCEDURE usp_AprobarNFT
     @ID_Revision INT,
@@ -192,13 +191,13 @@ BEGIN
         DECLARE @EstadoAprobadoID INT;
         DECLARE @NombreArtista NVARCHAR(100);
         
-    -- usp_AprobarNFT: approve revision, create auction and notify
-    -- Get ID for the "Approved" state
+        -- usp_AprobarNFT: aprueba revisión, crea subasta y notifica
+        -- Obtener ID del estado "Aprobado"
         SELECT @EstadoAprobadoID = ID_EstadoNFT 
         FROM Estado_NFT 
         WHERE Nombre = 'Aprobado';
         
-    -- Verify that the revision exists and belongs to the curator
+        -- Verificar que la revisión existe y pertenece al curador
         SELECT @ID_NFT = ID_NFT
         FROM Revision 
         WHERE ID_Revision = @ID_Revision 
@@ -208,7 +207,7 @@ BEGIN
             THROW 50006, 'Error: Revisión no encontrada o no pertenece a este curador', 1;
         END
         
-    -- Get NFT and artist data
+        -- Obtener datos del NFT y artista
         SELECT 
             @ID_Artista = ID_Persona,
             @NombreNFT = Nombre
@@ -219,14 +218,14 @@ BEGIN
         FROM Persona 
         WHERE ID_Persona = @ID_Artista;
         
-    -- Update the revision (change state and finalize)
+        -- Actualizar la revisión (cambiar estado y finalizar)
         UPDATE Revision
         SET ID_EstadoNFT = @EstadoAprobadoID,
             Fecha_Final = GETDATE(),
             Comentario = ISNULL(@Comentario, 'NFT aprobado - Cumple estándares de calidad')
         WHERE ID_Revision = @ID_Revision;
         
-    -- Send notification to the artist
+        -- Enviar notificación al artista
         INSERT INTO Correo_log (ID_Persona, Descripcion)
         VALUES (
             @ID_Artista,
@@ -248,7 +247,7 @@ END
 GO
 
 -- ============================================================================
--- SP 3: REJECT NFT
+-- SP 3: RECHAZAR NFT
 -- ============================================================================
 CREATE OR ALTER PROCEDURE usp_RechazarNFT
     @ID_Revision INT,
@@ -266,19 +265,19 @@ BEGIN
         DECLARE @EstadoRechazadoID INT;
         DECLARE @NombreArtista NVARCHAR(100);
         
-    -- usp_RechazarNFT: reject revision and notify the artist
-    -- Validate that a comment is provided
+        -- usp_RechazarNFT: rechaza revisión y notifica al artista
+        -- Validar que se proporcione un comentario
         IF @Comentario IS NULL OR LTRIM(RTRIM(@Comentario)) = ''
         BEGIN
             THROW 50007, 'Error: Debe proporcionar un comentario explicando el rechazo', 1;
         END
         
-    -- Get ID for the "Rejected" state
+        -- Obtener ID del estado "Rechazado"
         SELECT @EstadoRechazadoID = ID_EstadoNFT 
         FROM Estado_NFT 
         WHERE Nombre = 'Rechazado';
             
-    -- Verify that the revision exists and belongs to the curator
+        -- Verificar que la revisión existe y pertenece al curador
         SELECT @ID_NFT = ID_NFT
         FROM Revision 
         WHERE ID_Revision = @ID_Revision 
@@ -289,7 +288,7 @@ BEGIN
             THROW 50008, 'Error: Revisión no encontrada o no pertenece a este curador', 1;
         END
         
-    -- Get NFT and artist data
+        -- Obtener datos del NFT y artista
         SELECT 
             @ID_Artista = ID_Persona,
             @NombreNFT = Nombre
@@ -300,14 +299,14 @@ BEGIN
         FROM Persona 
         WHERE ID_Persona = @ID_Artista;
         
-    -- Update the revision (change state and finalize)
+        -- Actualizar la revisión (cambiar estado y finalizar)
         UPDATE Revision
         SET ID_EstadoNFT = @EstadoRechazadoID,
             Fecha_Final = GETDATE(),
             Comentario = @Comentario
         WHERE ID_Revision = @ID_Revision;
         
-    -- Send notification to the artist
+        -- Enviar notificación al artista
         INSERT INTO Correo_log (ID_Persona, Descripcion)
         VALUES (
             @ID_Artista,
@@ -328,7 +327,7 @@ END
 GO
 
 -- ============================================================================
--- SP 4: UPDATE NFT (with re-validation)
+-- SP 4: ACTUALIZAR NFT (con re-validación)
 -- ============================================================================
 CREATE OR ALTER PROCEDURE usp_ActualizarNFT
     @ID_NFT INT,
@@ -351,7 +350,7 @@ BEGIN
         DECLARE @NombrePersona NVARCHAR(100);
         DECLARE @PropietarioActual INT;
         
-    -- Verify that the NFT exists and belongs to the person
+        -- Verificar que el NFT existe y pertenece a la persona
         SELECT @PropietarioActual = ID_Persona
         FROM NFT 
         WHERE ID_NFT = @ID_NFT;
@@ -361,10 +360,10 @@ BEGIN
             THROW 50009, 'Error: NFT no encontrado', 1;
         END        
        
-    -- If dimensions are modified, validate
+        -- Si se modifican dimensiones, validar
         IF @Tamaño IS NOT NULL OR @Ancho IS NOT NULL OR @Alto IS NOT NULL
         BEGIN
-            -- Get current values if new ones are not provided
+            -- Obtener valores actuales si no se proporcionan nuevos
             IF @Tamaño IS NULL SELECT @Tamaño = Tamaño FROM NFT WHERE ID_NFT = @ID_NFT;
             IF @Ancho IS NULL SELECT @Ancho = Ancho FROM NFT WHERE ID_NFT = @ID_NFT;
             IF @Alto IS NULL SELECT @Alto = Alto FROM NFT WHERE ID_NFT = @ID_NFT;
@@ -406,7 +405,7 @@ BEGIN
             )
         WHERE ID_NFT = @ID_NFT;
         
-    -- Send notification
+        -- Enviar notificación
         SELECT @NombrePersona = Nombre FROM Persona WHERE ID_Persona = @ID_Persona;
         
         INSERT INTO Correo_log (ID_Persona, Descripcion)
@@ -427,7 +426,7 @@ END
 GO
 
 -- ============================================================================
--- SP 5: BID IN AUCTION
+-- SP 5: PUJA EN SUBASTA
 -- ============================================================================
 CREATE OR ALTER PROCEDURE usp_PujarEnSubasta
     @ID_Subasta INT,
@@ -457,15 +456,17 @@ BEGIN
     DECLARE @ExisteEmpate BIT = 0;
     DECLARE @MontoMaximoActual MONEY;
     DECLARE @CantidadEmpates INT = 0;
+    DECLARE @UltimaPujaFecha DATETIME;
+    DECLARE @DiferenciaSegundos INT;
+    DECLARE @NewPujaID INT;
 
-    -- Get static IDs
+    -- Obtiene los IDs estáticos
     SELECT @ID_EstadoPuja_Activa = ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Activa';
     SELECT @ID_EstadoPuja_Superada = ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Superada';
     SELECT @ID_EstadoPuja_Ganadora = ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Ganadora';
-    SELECT @EstadoSubastaActivaID = ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Activa'
+    SELECT @EstadoSubastaActivaID = ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Activa';
 
-
-    -- Verify that the auction exists, is active and not finished
+    -- Verifica que la subasta existe y está activa y no finalizada 
     IF NOT EXISTS (
         SELECT 1 FROM Subasta s 
         INNER JOIN Estado_Subasta es ON s.ID_EstadoSubasta = es.ID_EstadoSubasta
@@ -477,33 +478,51 @@ BEGIN
         THROW 50016, 'Error: La subasta no existe, no está activa o ya finalizó.', 1;
     END
 
-    -- Get current price and minimum bid
+    -- Obtiene precio actual y oferta mínima
     SET @PrecioActual = dbo.ufn_ObtenerPrecioActualSubasta(@ID_Subasta);
     SET @OfertaMinima = dbo.ufn_CalcularOfertaMinima(@ID_Subasta);
 
-    -- Competitiveness validation: require at least the minimum bid (5% over current)
+    -- Obtiene la fecha de la última puja para calcular diferencia de tiempo
+    SELECT TOP 1 @UltimaPujaFecha = Fecha
+    FROM Puja
+    WHERE ID_Subasta = @ID_Subasta
+    ORDER BY Fecha DESC;
+
+    -- Calcula diferencia en segundos desde la última puja
+    IF @UltimaPujaFecha IS NOT NULL
+    BEGIN
+        SET @DiferenciaSegundos = DATEDIFF(SECOND, @UltimaPujaFecha, GETDATE());
+    END
+    ELSE
+    BEGIN
+        SET @DiferenciaSegundos = 11;
+    END
+
+    -- Validación de competitividad: la oferta debe ser al menos la oferta mínima
+    -- (se aplica siempre para evitar aceptar montos por debajo del mínimo competitivo)
     IF @Monto < @OfertaMinima
     BEGIN
         DECLARE @Mensaje NVARCHAR(200);
-        SET @Mensaje = 'Error: Oferta no competitiva.';
+        SET @Mensaje = 'Error: Oferta no competitiva. El monto debe ser >= oferta mínima.';
         THROW 50015, @Mensaje, 1;
     END
 
     BEGIN TRANSACTION;
     BEGIN TRY
 
-    SET TRANSACTION ISOLATION LEVEL REPEATABLE READ
-    -- Get the bidder's wallet to update balances
-         SELECT TOP 1 @ID_Billetera = ID_Billetera, @SaldoDisponible = Saldo_Disponible, @SaldoReservado = Saldo_Reservado
-         FROM Billetera
-         WHERE ID_Persona = @ID_Persona;
+        SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+
+        -- Obtiene la billetera del pujador para actualizar saldos
+        SELECT TOP 1 @ID_Billetera = ID_Billetera, @SaldoDisponible = Saldo_Disponible, @SaldoReservado = Saldo_Reservado
+        FROM Billetera
+        WHERE ID_Persona = @ID_Persona;
 
         IF @ID_Billetera IS NULL
         BEGIN
             THROW 50017, 'Error: No se encontró billetera para el usuario.', 1;
         END
 
-    -- Check if the same user already has an active/winning bid in this auction
+        -- Verifica si el mismo usuario ya tiene una puja activa/ganadora previa en esta subasta
         SELECT TOP 1 @PrevPujaID = ID_Puja, @PrevPujaMonto = Monto
         FROM Puja
         WHERE ID_Subasta = @ID_Subasta
@@ -513,6 +532,12 @@ BEGIN
 
         IF @PrevPujaID IS NOT NULL
         BEGIN
+             -- No permitir reducir el monto de una puja previa del mismo usuario
+            IF @Monto < @PrevPujaMonto
+            BEGIN
+                THROW 50018, 'Error: No se permite disminuir el monto de una puja previa.', 1;
+            END
+
             SET @MontoAReservar = @Monto - ISNULL(@PrevPujaMonto, 0);
         END
         ELSE
@@ -520,58 +545,58 @@ BEGIN
             SET @MontoAReservar = @Monto;
         END
 
-
-    -- Verify available balance to reserve the difference
+        -- Verifica saldo disponible para reservar la diferencia
         IF @SaldoDisponible < @MontoAReservar
         BEGIN
             THROW 50014, 'Error: Saldo insuficiente en la billetera para cubrir la reserva de la oferta.', 1;
         END
 
-    -- Check if there is a tie with other bids of the same amount
+        -- Verifica si existe empate con otras pujas del mismo monto
         SELECT @MontoMaximoActual = MAX(Monto)
         FROM Puja 
         WHERE ID_Subasta = @ID_Subasta 
           AND Estado IN (@ID_EstadoPuja_Activa, @ID_EstadoPuja_Ganadora);
 
-    -- If the offered amount equals the current maximum, there is a tie
+        -- Si el monto ofertado es igual al máximo actual, ocurre el empate
         IF @Monto = @MontoMaximoActual AND @MontoMaximoActual IS NOT NULL
         BEGIN
             SET @ExisteEmpate = 1;
             
-            -- Count how many ties exist
+            -- Cuenta la cantidad de empates existentes (ANTES de insertar la nueva puja)
             SELECT @CantidadEmpates = COUNT(*)
             FROM Puja
             WHERE ID_Subasta = @ID_Subasta 
               AND Monto = @Monto
               AND Estado IN (@ID_EstadoPuja_Activa, @ID_EstadoPuja_Ganadora);
-            
-            -- Notify all users with tied bids
-            INSERT INTO Correo_log (ID_Persona, Descripcion)
-            SELECT DISTINCT ID_Persona, 
-                   'Aviso de Empate: Su oferta de ' + CONVERT(VARCHAR(50), @Monto) + 
-                   ' ETH para la subasta ' + CONVERT(VARCHAR(20), @ID_Subasta) + 
-                   ' está empatada con otros participantes. La oferta más reciente será considerada ganadora.'
-            FROM Puja
-            WHERE ID_Subasta = @ID_Subasta 
-              AND Monto = @Monto
-              AND Estado IN (@ID_EstadoPuja_Activa, @ID_EstadoPuja_Ganadora)
-              AND ID_Persona <> @ID_Persona; -- Excluir al usuario actual (se notificará después)
         END
 
-    -- If the user had a previous bid, mark it as surpassed
+        -- Si el usuario tenía una puja previa, se marca como superada 
         IF @PrevPujaID IS NOT NULL
         BEGIN
             UPDATE Puja SET Estado = @ID_EstadoPuja_Superada WHERE ID_Puja = @PrevPujaID;
         END
 
-    -- Insert new bid as Winning
+        -- Inserta nueva puja como Ganadora 
         INSERT INTO Puja (ID_Subasta, ID_Persona, Monto, Fecha, Estado)
         VALUES (@ID_Subasta, @ID_Persona, @Monto, GETDATE(), @ID_EstadoPuja_Ganadora);
 
+        SET @NewPujaID = SCOPE_IDENTITY();
 
-    -- If there is a tie, mark tied bids as Winning
+        --Notifica empates 
         IF @ExisteEmpate = 1
         BEGIN
+            -- Notifica a los usuarios con pujas empatadas (incluyendo al actual)
+            INSERT INTO Correo_log (ID_Persona, Descripcion)
+            SELECT DISTINCT ID_Persona, 
+                   'Aviso de Empate: Su oferta de ' + CONVERT(VARCHAR(50), @Monto) + 
+                   ' ETH para la subasta ' + CONVERT(VARCHAR(20), @ID_Subasta) + 
+                   ' está empatada con otros participantes.'
+            FROM Puja
+            WHERE ID_Subasta = @ID_Subasta 
+              AND Monto = @Monto
+              AND Estado IN (@ID_EstadoPuja_Activa, @ID_EstadoPuja_Ganadora);
+            
+            -- Marca todas las pujas empatadas como Ganadoras
             UPDATE Puja 
             SET Estado = @ID_EstadoPuja_Ganadora
             WHERE ID_Subasta = @ID_Subasta 
@@ -580,30 +605,30 @@ BEGIN
         END
         ELSE
         BEGIN
+            -- Sin empate: se marcan otras pujas como Activas
             UPDATE Puja 
             SET Estado = @ID_EstadoPuja_Activa
             WHERE ID_Subasta = @ID_Subasta 
-            AND  ID_Persona <> @ID_Persona
-            AND Estado = @ID_EstadoPuja_Ganadora
-
+            AND ID_Persona <> @ID_Persona
+            AND Estado = @ID_EstadoPuja_Ganadora;
         END
 
-    -- Update the wallet to reserve the difference
+        -- Actualiza la billetera para reservar la diferencia
         UPDATE Billetera
         SET Saldo_Disponible = Saldo_Disponible - @MontoAReservar,
             Saldo_Reservado = Saldo_Reservado + @MontoAReservar,
             Fecha_Actualizacion = GETDATE()
         WHERE ID_Billetera = @ID_Billetera;
 
-    -- Email log / confirmation to the bidder
+        -- Log de correo/confirmación al pujador 
         DECLARE @MensajeCorreo NVARCHAR(500);
         
         IF @ExisteEmpate = 1
         BEGIN
-            SET @MensajeCorreo = '¡Felicidades! Su oferta de ' + CONVERT(VARCHAR(50), @Monto) + 
+            SET @MensajeCorreo = 'Su oferta de ' + CONVERT(VARCHAR(50), @Monto) + 
                                 ' ETH para la subasta ' + CONVERT(VARCHAR(20), @ID_Subasta) + 
-                                ' está empatada con ' + CONVERT(VARCHAR(10), @CantidadEmpates) + 
-                                ' otros participantes. Se tomará como ganador la puja más reciente.';
+                                ' ha sido recibida, pero está empatada con ' + CONVERT(VARCHAR(10), @CantidadEmpates) + 
+                                ' otros participantes. Se respetará el orden de llegada.';
         END
         ELSE
         BEGIN
@@ -627,12 +652,8 @@ BEGIN
     END CATCH;
 END
 GO
-
-
-
-
 -- ============================================================================
--- SP 6: AUCTION MODIFICATION
+-- SP 6: MODIFICACION EN LA SUBASTA
 -- ============================================================================
 
 CREATE OR ALTER PROCEDURE usp_ModificarSubasta
@@ -651,7 +672,7 @@ BEGIN
         DECLARE @FechaFinalActual DATETIME;
         DECLARE @Mensaje NVARCHAR(500) = '';
         
-    -- Validate that the auction exists
+        -- Validar que la subasta existe
         SELECT 
             @SubastaExiste = 1,
             @FechaInicioActual = Fecha_Inicio,
@@ -664,19 +685,19 @@ BEGIN
             THROW 50030, 'Error: La subasta especificada no existe.', 1;
         END
         
-    -- Validate that at least one parameter was provided
+        -- Validar que al menos un parámetro fue proporcionado
         IF @NuevoPrecioInicial IS NULL AND @HorasExtras IS NULL
         BEGIN
             THROW 50031, 'Error: Debe proporcionar al menos un parámetro (precio o horas extras).', 1;
         END
         
-    -- Validate that the price is not negative
+        -- Validar que el precio no sea negativo
         IF @NuevoPrecioInicial IS NOT NULL AND @NuevoPrecioInicial < 0
         BEGIN
             THROW 50032, 'Error: El precio inicial no puede ser negativo.', 1;
         END
         
-    -- Update initial price if provided
+        -- Actualizar precio inicial si se proporciona
         IF @NuevoPrecioInicial IS NOT NULL
         BEGIN
             UPDATE Subasta 
@@ -688,7 +709,7 @@ BEGIN
 
 
  
-    -- Extend duration if extra hours are provided
+        -- Extender duración si se proporcionan horas extras
         IF @HorasExtras IS NOT NULL
         BEGIN
                   
@@ -721,3 +742,236 @@ BEGIN
     END CATCH
 END
 GO
+
+
+-- ============================================================================
+-- SP 7: FINALIZACION DE LA SUBASTA
+-- ============================================================================
+
+CREATE OR ALTER PROCEDURE FinalizarSubastas
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @SubastasProcesadas INT = 0;
+    DECLARE @InicioEjecucion DATETIME = GETDATE();
+    
+    BEGIN TRY
+        BEGIN TRANSACTION;
+        
+        -- 1. Obtener estados
+        DECLARE @EstadoProcesando INT = (SELECT ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Procesando');
+        DECLARE @EstadoFinalizada INT = (SELECT ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Finalizada');
+        DECLARE @EstadoActiva INT = (SELECT ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Activa');
+        
+        -- 2. Verificar primero si hay subastas para procesar
+        IF NOT EXISTS (
+            SELECT 1 
+            FROM Subasta 
+            WHERE ID_EstadoSubasta = @EstadoActiva 
+            AND Fecha_Final <= GETDATE()
+        )
+        BEGIN
+            -- No hay subastas para procesar, hacer commit y salir
+            COMMIT TRANSACTION;
+            
+            PRINT 'No hay subastas pendientes de finalizar.';
+            RETURN 0;
+        END
+        
+        -- 3. Si hay subastas, continuar con el procesamiento normal
+        UPDATE Subasta 
+        SET ID_EstadoSubasta = @EstadoProcesando
+        WHERE ID_EstadoSubasta = @EstadoActiva 
+        AND Fecha_Final <= GETDATE();
+        
+        -- 4. Identificar subastas que deben finalizar
+        DECLARE @SubastasFinalizadas TABLE (
+            ID_Subasta INT,
+            ID_NFT INT,
+            ID_Persona_Artista INT,
+            Oferta_Ganadora MONEY,
+            ID_Persona_Ganador INT,
+            Nombre_NFT NVARCHAR(100),
+            Correo_Artista NVARCHAR(100),
+            Correo_Ganador NVARCHAR(100)
+        );
+        
+            INSERT INTO @SubastasFinalizadas (
+                ID_Subasta, ID_NFT, ID_Persona_Artista, Oferta_Ganadora, ID_Persona_Ganador,
+                Nombre_NFT, Correo_Artista, Correo_Ganador
+            )
+            SELECT 
+                s.ID_Subasta,
+                s.ID_NFT,
+                n.ID_Persona AS ID_Persona_Artista,
+                -- Obtiene la oferta máxima para esta subasta específica
+                (SELECT MAX(Monto) FROM Puja WHERE ID_Subasta = s.ID_Subasta) AS Oferta_Ganadora,
+                -- Obtiene el primer ganador en caso de empate (por fecha más temprana)
+                (SELECT TOP 1 p2.ID_Persona 
+                 FROM Puja p2 
+                 WHERE p2.ID_Subasta = s.ID_Subasta 
+                 AND p2.Monto = (SELECT MAX(Monto) FROM Puja WHERE ID_Subasta = s.ID_Subasta)
+                 ORDER BY p2.Fecha ASC) AS ID_Persona_Ganador,
+                n.Nombre AS Nombre_NFT,
+                pa.Correo AS Correo_Artista,
+                pg.Correo AS Correo_Ganador
+            FROM Subasta s
+            INNER JOIN NFT n ON s.ID_NFT = n.ID_NFT
+            INNER JOIN Persona pa ON n.ID_Persona = pa.ID_Persona
+            LEFT JOIN Persona pg ON (SELECT TOP 1 p2.ID_Persona 
+                                   FROM Puja p2 
+                                   WHERE p2.ID_Subasta = s.ID_Subasta 
+                                   AND p2.Monto = (SELECT MAX(Monto) FROM Puja WHERE ID_Subasta = s.ID_Subasta)
+                                   ORDER BY p2.Fecha ASC) = pg.ID_Persona
+            WHERE s.ID_EstadoSubasta = @EstadoProcesando
+            GROUP BY s.ID_Subasta, s.ID_NFT, n.ID_Persona, n.Nombre, pa.Correo, pg.Correo;
+        
+        SET @SubastasProcesadas = @@ROWCOUNT;
+        
+        -- 5. Procesar cada subasta finalizada
+        DECLARE @ID_Subasta INT, @ID_NFT INT, @ID_Artista INT, @Oferta_Ganadora MONEY, 
+                @ID_Ganador INT, @Nombre_NFT NVARCHAR(100), @Correo_Artista NVARCHAR(100), 
+                @Correo_Ganador NVARCHAR(100);
+        
+        DECLARE subasta_cursor CURSOR FOR
+        SELECT ID_Subasta, ID_NFT, ID_Persona_Artista, Oferta_Ganadora, ID_Persona_Ganador,
+               Nombre_NFT, Correo_Artista, Correo_Ganador
+        FROM @SubastasFinalizadas;
+        
+        OPEN subasta_cursor;
+        FETCH NEXT FROM subasta_cursor INTO @ID_Subasta, @ID_NFT, @ID_Artista, @Oferta_Ganadora, 
+                                            @ID_Ganador, @Nombre_NFT, @Correo_Artista, @Correo_Ganador;
+        
+        WHILE @@FETCH_STATUS = 0
+        BEGIN
+            -- Verifica si hay ofertas ganadoras
+            IF @Oferta_Ganadora IS NOT NULL AND @ID_Ganador IS NOT NULL
+            BEGIN
+                -- Transfiere NFT al ganador
+                INSERT INTO Registro_NFT (ID_Persona, ID_NFT, ID_Subasta, Fecha_Adquisicion)
+                VALUES (@ID_Ganador, @ID_NFT, @ID_Subasta, GETDATE());
+                
+                -- Transferir fondos al artista
+                UPDATE Billetera 
+                SET Saldo_Disponible = Saldo_Disponible + @Oferta_Ganadora,
+                    Fecha_Actualizacion = GETDATE()
+                WHERE ID_Persona = @ID_Artista;
+                
+                -- Registra la transacción para el artista (Pago)
+                INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
+                SELECT 
+                    b.ID_Billetera,
+                    (SELECT ID_TipoTransaccion FROM Tipo_Transaccion WHERE Nombre = 'Pago'),
+                    @ID_Subasta,
+                    @Oferta_Ganadora,
+                    GETDATE(),
+                    'Venta de NFT: ' + @Nombre_NFT
+                FROM Billetera b
+                WHERE b.ID_Persona = @ID_Artista;
+                
+                -- *** NUEVO: Registrar transacción de COMPRA para el ganador ***
+                INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
+                SELECT 
+                    b.ID_Billetera,
+                    (SELECT ID_TipoTransaccion FROM Tipo_Transaccion WHERE Nombre = 'Compra'),
+                    @ID_Subasta,
+                    @Oferta_Ganadora,
+                    GETDATE(),
+                    'Compra de NFT: ' + @Nombre_NFT
+                FROM Billetera b
+                WHERE b.ID_Persona = @ID_Ganador;
+                
+                -- Reembolsa a los perdedores
+                UPDATE Billetera 
+                SET Saldo_Disponible = Saldo_Disponible + p.Monto,
+                    Saldo_Reservado = Saldo_Reservado - p.Monto,
+                    Fecha_Actualizacion = GETDATE()
+                FROM Billetera b
+                INNER JOIN Puja p ON b.ID_Persona = p.ID_Persona
+                WHERE p.ID_Subasta = @ID_Subasta
+                AND p.ID_Persona != @ID_Ganador;
+                
+                -- Registra transacciones de reembolso
+                INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
+                SELECT 
+                    b.ID_Billetera,
+                    (SELECT ID_TipoTransaccion FROM Tipo_Transaccion WHERE Nombre = 'Reembolso'),
+                    @ID_Subasta,
+                    p.Monto,
+                    GETDATE(),
+                    'Reembolso por oferta no ganadora en: ' + @Nombre_NFT
+                FROM Billetera b
+                INNER JOIN Puja p ON b.ID_Persona = p.ID_Persona
+                WHERE p.ID_Subasta = @ID_Subasta
+                AND p.ID_Persona != @ID_Ganador;
+                
+                -- Libera fondos reservados del ganador
+                UPDATE Billetera 
+                SET Saldo_Reservado = Saldo_Reservado - @Oferta_Ganadora,
+                    Fecha_Actualizacion = GETDATE()
+                WHERE ID_Persona = @ID_Ganador;
+                
+                -- Actualiza subasta con oferta ganadora
+                UPDATE Subasta 
+                SET Oferta_Ganadora = @Oferta_Ganadora,
+                    ID_EstadoSubasta = @EstadoFinalizada
+                WHERE ID_Subasta = @ID_Subasta;
+                
+                -- Registra notificaciones
+                INSERT INTO Correo_log (ID_Persona, Descripcion, Fecha_Envio)
+                VALUES 
+                    (@ID_Ganador, '¡Felicidades! Eres el nuevo dueño de "' + @Nombre_NFT + '" por ' + CAST(@Oferta_Ganadora AS NVARCHAR(20)) + ' ETH.', GETDATE()),
+                    (@ID_Artista, '¡Venta exitosa! Has recibido ' + CAST(@Oferta_Ganadora AS NVARCHAR(20)) + ' ETH por tu NFT "' + @Nombre_NFT + '".', GETDATE());
+                
+                -- Notifica a perdedores
+                INSERT INTO Correo_log (ID_Persona, Descripcion, Fecha_Envio)
+                SELECT DISTINCT 
+                    p.ID_Persona,
+                    'Tu oferta en la subasta de "' + @Nombre_NFT + '" no fue ganadora. Los fondos han sido reembolsados a tu billetera.',
+                    GETDATE()
+                FROM Puja p
+                WHERE p.ID_Subasta = @ID_Subasta
+                AND p.ID_Persona != @ID_Ganador;
+            END
+            ELSE
+            BEGIN
+                -- Subasta sin ofertas
+                UPDATE Subasta 
+                SET ID_EstadoSubasta = @EstadoFinalizada
+                WHERE ID_Subasta = @ID_Subasta;
+                
+                -- Notificar al artista
+                INSERT INTO Correo_log (ID_Persona, Descripcion, Fecha_Envio)
+                VALUES (@ID_Artista, 'Lamentamos informarte que tu subasta de "' + @Nombre_NFT + '" ha terminado sin ofertas.', GETDATE());
+            END
+            
+            FETCH NEXT FROM subasta_cursor INTO @ID_Subasta, @ID_NFT, @ID_Artista, @Oferta_Ganadora, 
+                                                @ID_Ganador, @Nombre_NFT, @Correo_Artista, @Correo_Ganador;
+        END
+        
+        CLOSE subasta_cursor;
+        DEALLOCATE subasta_cursor;
+        
+        COMMIT TRANSACTION;
+        
+        -- 6. Log de ejecución exitosa
+        DECLARE @TiempoEjecucion INT = DATEDIFF(SECOND, @InicioEjecucion, GETDATE());
+        
+        PRINT 'Proceso de finalización completado. ' + CAST(@SubastasProcesadas AS NVARCHAR(10)) + ' subastas procesadas en ' + CAST(@TiempoEjecucion AS NVARCHAR(10)) + ' segundos.';
+        
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+        
+        -- Registrar error detallado
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrorState INT = ERROR_STATE();
+        
+        -- Insertar en log de errores
+        
+        RAISERROR ('Error en finalización de subastas: %s', @ErrorSeverity, @ErrorState, @ErrorMessage);
+    END CATCH
+END;

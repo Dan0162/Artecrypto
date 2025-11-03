@@ -1,4 +1,4 @@
--- trg_NFT_AfterUpdate_ReasignarRevision: create new review if NFT updated after rejection
+-- trg_NFT_AfterUpdate_ReasignarRevision: crea nueva revisión si NFT actualizado tras rechazo
 CREATE OR ALTER TRIGGER trg_NFT_AfterUpdate_ReasignarRevision
 ON NFT 
 AFTER UPDATE
@@ -7,8 +7,8 @@ BEGIN
     SET NOCOUNT ON;
     SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
 
-    -- Only process NFTs that were rejected and are now updated
-    -- And that do not already have a pending review
+    -- Solo procesa NFTs que fueron rechazados y ahora se actualizan
+    -- Y que no tengan ya una revisión pendiente
     IF EXISTS (
         SELECT 1 
         FROM inserted i
@@ -31,7 +31,7 @@ BEGIN
         FROM Estado_NFT 
         WHERE Nombre = 'Pendiente';
 
-    -- Find the curator with the lowest workload
+        -- Busca al curador con menos carga de trabajo
         SELECT TOP 1 @CuradorAsignado = p.ID_Persona
         FROM Persona p
         INNER JOIN Entidad_Rol er ON p.ID_Persona = er.ID_Persona
@@ -42,7 +42,7 @@ BEGIN
         GROUP BY p.ID_Persona
         ORDER BY COUNT(r.ID_Revision) ASC;
 
-    -- If no curator is found, assign the first in the list
+        -- Por si no se encuentra a un curador, asigna el primero de la lista
         IF @CuradorAsignado IS NULL
         BEGIN
             SELECT TOP 1 @CuradorAsignado = p.ID_Persona
@@ -53,7 +53,7 @@ BEGIN
             ORDER BY p.ID_Persona;
         END
 
-    -- If the NFT was rejected and updated, create a new review
+        -- Si el NFT fue rechazado y actualizado, crear nueva revision
         INSERT INTO Revision (ID_Persona, ID_NFT, ID_EstadoNFT, Fecha_Inicio, Fecha_Final, Comentario)
         SELECT 
             @CuradorAsignado,
