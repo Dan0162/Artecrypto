@@ -39,32 +39,57 @@ GO
 -- ============================================================================
 -- VIEW 2: ACTIVIDAD DE LOS COLECCIONISTAS
 -- ============================================================================
+-- ============================================================================
+-- VIEW 2: ACTIVIDAD DE LOS COLECCIONISTAS - CORREGIDA
+-- ============================================================================
 CREATE OR ALTER VIEW ActividadColeccionistas
 AS
 WITH EstadoGanadora AS (
-    -- Identifica el ID correspondiente al estado 'Ganadora'
     SELECT ID_EstadoPuja AS ID_Ganadora 
     FROM Estado_Puja 
     WHERE Nombre = N'Ganadora'
 ),
-PujasXColeccionista AS (
-   -- Métricas agregadas por coleccionista
+-- CTE para contar TODAS las pujas
+TotalPujasPorColeccionista AS (
+    SELECT 
+        p.ID_Persona,
+        COUNT(*) AS TotalOfertas  -- ✅ Cuenta TODAS las pujas
+    FROM Puja p
+    INNER JOIN Persona pe ON p.ID_Persona = pe.ID_Persona
+    INNER JOIN Entidad_Rol er ON pe.ID_Persona = er.ID_Persona
+    INNER JOIN Tipo_Entidad te ON er.ID_TipoEntidad = te.ID_TipoEntidad 
+        AND te.Nombre = N'Coleccionista'
+    GROUP BY p.ID_Persona
+),
+-- CTE para obtener la máxima puja por subasta (para el monto invertido)
+MaximaPujaPorSubasta AS (
     SELECT 
         pu.ID_Persona,
-        COUNT(*) AS TotalOfertas,
-        COUNT(DISTINCT pu.ID_Subasta) AS SubastasParticipadas,
-        SUM(CASE WHEN pu.Estado = eg.ID_Ganadora THEN pu.Monto ELSE 0 END) AS MontoInvertido,
-        COUNT(CASE WHEN pu.Estado = eg.ID_Ganadora THEN 1 END) AS SubastasGanadas
+        pu.ID_Subasta,
+        MAX(pu.Monto) AS MaximaPuja
     FROM Puja pu
-    CROSS JOIN EstadoGanadora eg
     INNER JOIN Persona pe ON pu.ID_Persona = pe.ID_Persona
     INNER JOIN Entidad_Rol er ON pe.ID_Persona = er.ID_Persona
     INNER JOIN Tipo_Entidad te ON er.ID_TipoEntidad = te.ID_TipoEntidad 
         AND te.Nombre = N'Coleccionista'
-    GROUP BY pu.ID_Persona
+    GROUP BY pu.ID_Persona, pu.ID_Subasta
+),
+PujasXColeccionista AS (
+    SELECT 
+        mp.ID_Persona,
+        tp.TotalOfertas,  -- ✅ Usa el total REAL de pujas
+        COUNT(DISTINCT mp.ID_Subasta) AS SubastasParticipadas,
+        SUM(mp.MaximaPuja) AS MontoTotalInvertido,
+        COUNT(CASE WHEN pu.Estado = eg.ID_Ganadora THEN 1 END) AS SubastasGanadas
+    FROM MaximaPujaPorSubasta mp
+    INNER JOIN TotalPujasPorColeccionista tp ON mp.ID_Persona = tp.ID_Persona  -- ✅ JOIN con total real
+    INNER JOIN Puja pu ON mp.ID_Persona = pu.ID_Persona 
+                       AND mp.ID_Subasta = pu.ID_Subasta 
+                       AND mp.MaximaPuja = pu.Monto
+    CROSS JOIN EstadoGanadora eg
+    GROUP BY mp.ID_Persona, tp.TotalOfertas  -- ✅ Incluir TotalOfertas en GROUP BY
 ),
 RegistroColeccionista AS (
-    -- Fecha de registro del coleccionista más temprana
     SELECT 
         er.ID_Persona,
         MIN(er.Fecha_Registro) AS FechaRegistro
@@ -74,20 +99,18 @@ RegistroColeccionista AS (
     GROUP BY er.ID_Persona
 )
 SELECT 
-    pe.Nombre,
-    pe.Correo,
+    pe.Nombre AS [Nombre],
+    pe.Correo AS [Email],
     rc.FechaRegistro AS [Fecha registro],
     pc.TotalOfertas AS [Total de ofertas realizadas],
     pc.SubastasGanadas AS [Subastas ganadas],
-    pc.MontoInvertido AS [Monto total invertido],
-    -- ✅ Modificación: Tasa de éxito basada en subastas participadas
+    pc.MontoTotalInvertido AS [Monto total invertido],
     FORMAT((pc.SubastasGanadas * 100.0 / NULLIF(pc.SubastasParticipadas, 0)), 'N2') AS [Tasa de éxito (%)],
     FORMAT(CAST(pc.TotalOfertas AS DECIMAL(10, 2)) / NULLIF(pc.SubastasParticipadas, 0), 'N2') AS [Promedio de ofertas por subasta]
 FROM PujasXColeccionista pc
 INNER JOIN Persona pe ON pc.ID_Persona = pe.ID_Persona
 INNER JOIN RegistroColeccionista rc ON pc.ID_Persona = rc.ID_Persona;
 GO
-
 
 -- ============================================================================
 -- VIEW 3: VALORACIÓN DE LOS ARTISTAS

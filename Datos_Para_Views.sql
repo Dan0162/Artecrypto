@@ -62,10 +62,58 @@ EXEC usp_AprobarNFT @ID_Revision = 19, @Comentario = 'Técnica digital avanzada'
 EXEC usp_AprobarNFT @ID_Revision = 20, @Comentario = 'Obra maestra contemporánea';
 EXEC usp_AprobarNFT @ID_Revision = 21, @Comentario = 'Aprobado para colección exclusiva';
 EXEC usp_AprobarNFT @ID_Revision = 22, @Comentario = 'Innovación en arte generativo';
+
+EXEC usp_AprobarNFT @ID_Revision = 23, @Comentario = 'Composición visual excepcional';
+EXEC usp_AprobarNFT @ID_Revision = 24, @Comentario = 'Técnica mixta innovadora';
+EXEC usp_AprobarNFT @ID_Revision = 25, @Comentario = 'Narrativa artística poderosa';
+EXEC usp_AprobarNFT @ID_Revision = 26, @Comentario = 'Aprobado - potencial de mercado alto';
+EXEC usp_AprobarNFT @ID_Revision = 27, @Comentario = 'Uso magistral del color y forma';
+EXEC usp_AprobarNFT @ID_Revision = 28, @Comentario = 'Arte digital de vanguardia';
+EXEC usp_AprobarNFT @ID_Revision = 29, @Comentario = 'Concepto filosófico bien desarrollado';
+EXEC usp_AprobarNFT @ID_Revision = 30, @Comentario = 'Aprobado para subasta internacional';
+
+EXEC usp_AprobarNFT @ID_Revision = 31, @Comentario = 'Técnica de animación 3D avanzada';
+EXEC usp_AprobarNFT @ID_Revision = 32, @Comentario = 'Arte generativo con algoritmos propios';
+EXEC usp_AprobarNFT @ID_Revision = 33, @Comentario = 'Fusión perfecta entre arte tradicional y digital';
+EXEC usp_AprobarNFT @ID_Revision = 34, @Comentario = 'Serie coleccionable de alto valor';
+EXEC usp_AprobarNFT @ID_Revision = 35, @Comentario = 'Narrativa visual innovadora';
+EXEC usp_AprobarNFT @ID_Revision = 36, @Comentario = 'Aprobado para edición limitada';
+EXEC usp_AprobarNFT @ID_Revision = 37, @Comentario = 'Uso experimental de texturas digitales';
+EXEC usp_AprobarNFT @ID_Revision = 38, @Comentario = 'Concepto de realidad aumentada integrado';
+EXEC usp_AprobarNFT @ID_Revision = 39, @Comentario = 'Paleta cromática innovadora';
+EXEC usp_AprobarNFT @ID_Revision = 40, @Comentario = 'Arte con impacto social relevante';
+EXEC usp_AprobarNFT @ID_Revision = 41, @Comentario = 'Técnica de pixel art contemporáneo';
+EXEC usp_AprobarNFT @ID_Revision = 42, @Comentario = 'Aprobado - obra de culto emergente';
+EXEC usp_AprobarNFT @ID_Revision = 43, @Comentario = 'Fotografía digital manipulada artísticamente';
+EXEC usp_AprobarNFT @ID_Revision = 44, @Comentario = 'Escultura digital tridimensional';
+EXEC usp_AprobarNFT @ID_Revision = 45, @Comentario = 'Arte cinético digital innovador';
     
-    -- Rechazamos 2
+    -- Rechazamos varios
 EXEC usp_RechazarNFT @ID_Revision = 9, @Comentario = 'Rechazado para prueba de view';
 EXEC usp_RechazarNFT @ID_Revision = 10, @Comentario = 'Rechazado para prueba de view';
+EXEC usp_RechazarNFT @ID_Revision = 46, @Comentario = 'Calidad técnica insuficiente';
+EXEC usp_RechazarNFT @ID_Revision = 47, @Comentario = 'No cumple con los estándares de originalidad';
+EXEC usp_RechazarNFT @ID_Revision = 48, @Comentario = 'Problemas de derechos de autor';
+EXEC usp_RechazarNFT @ID_Revision = 49, @Comentario = 'Resolución de imagen muy baja';
+EXEC usp_RechazarNFT @ID_Revision = 50, @Comentario = 'Concepto artístico poco desarrollado';
+EXEC usp_RechazarNFT @ID_Revision = 51, @Comentario = 'Formato no compatible con la plataforma';
+EXEC usp_RechazarNFT @ID_Revision = 52, @Comentario = 'Contenido no apropiado para la comunidad';
+EXEC usp_RechazarNFT @ID_Revision = 53, @Comentario = 'Falta de documentación del proceso creativo';
+EXEC usp_RechazarNFT @ID_Revision = 54, @Comentario = 'Técnica demasiado básica para el mercado actual';
+EXEC usp_RechazarNFT @ID_Revision = 55, @Comentario = 'Metadata incompleta o incorrecta';
+EXEC usp_RechazarNFT @ID_Revision = 56, @Comentario = 'Falta de originalidad en la propuesta artística';
+
+Select *
+from Revision
+
+Select *
+from Registro_NFT
+
+Select *
+from Billetera
+
+
+-- Extender todas las subastas activas por 2 días
 
 
 
@@ -260,6 +308,9 @@ EXEC usp_PujarEnSubasta @ID_Subasta = 8, @ID_Persona = 17, @Monto = 2318.00; -- 
 
 -- Insertar pujas para las subastas 9-20 (nuevas subastas)
 -- Subasta 9
+
+
+
 EXEC usp_PujarEnSubasta @ID_Subasta = 9, @ID_Persona = 3, @Monto = 80.00;
 EXEC usp_PujarEnSubasta @ID_Subasta = 9, @ID_Persona = 7, @Monto = 84.01;   -- 80.00 * 1.05 = 84.00 → 84.01 (> 1.05%)
 EXEC usp_PujarEnSubasta @ID_Subasta = 9, @ID_Persona = 11, @Monto = 88.22; -- 84.01 * 1.05 = 88.2105 → 88.22 (> 1.05%)
@@ -539,8 +590,6 @@ PRINT '- 20 NFTs aprobados (subastas activas)'
 PRINT '- Mínimo 20 pujas por subasta'
 PRINT '- Total de más de 400 pujas en el sistema'
 
-Select *
-from Transaccion_Billetera
 
 -- Consultar las vistas para verificar los datos
 SELECT * FROM EficienciaCuradores;
@@ -548,3 +597,13 @@ SELECT * FROM ActividadColeccionistas;
 SELECT * FROM ValorizacionArtistas;
 SELECT * FROM SubastaXPeriodo;
 
+Select * from
+Entidad_Rol ere
+INNER JOIN Tipo_Entidad te on ere.ID_TipoEntidad = te.ID_TipoEntidad
+INNER JOIN Persona p on p.ID_Persona = ere.ID_Persona
+Where te.Nombre = 'Coleccionista'
+
+
+Update Entidad_Rol
+SET Fecha_Registro = DATEADD(MONTH,-1,Fecha_Registro)
+Where ID_Persona = 13

@@ -184,12 +184,14 @@ BEGIN
     
     BEGIN TRY
         BEGIN TRANSACTION;
-        
+          
         DECLARE @ID_NFT INT;
         DECLARE @ID_Artista INT;
         DECLARE @NombreNFT NVARCHAR(100);
         DECLARE @EstadoAprobadoID INT;
+        DECLARE @EstadoPendienteID INT;
         DECLARE @NombreArtista NVARCHAR(100);
+        DECLARE @EstadoActualID INT;
         
         -- usp_AprobarNFT: aprueba revisión, crea subasta y notifica
         -- Obtener ID del estado "Aprobado"
@@ -205,6 +207,16 @@ BEGIN
         IF @ID_NFT IS NULL
         BEGIN
             THROW 50006, 'Error: Revisión no encontrada o no pertenece a este curador', 1;
+        END
+
+        IF @EstadoActualID != @EstadoPendienteID
+        BEGIN
+            DECLARE @EstadoActualNombre NVARCHAR(50);
+            SELECT @EstadoActualNombre = Nombre 
+            FROM Estado_NFT 
+            WHERE ID_EstadoNFT = @EstadoActualID;
+            
+            THROW 50007, 'Error: La revisión no está en estado "Pendiente".', 1;
         END
         
         -- Obtener datos del NFT y artista
@@ -894,7 +906,7 @@ BEGIN
                 FROM Billetera b
                 WHERE b.ID_Persona = @ID_Artista;
                 
-                -- Registra la transacción de Compra para el ganador ***
+                -- Registra la transacción de Compra para el ganador
                 INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
                 SELECT 
                     b.ID_Billetera,
@@ -906,17 +918,22 @@ BEGIN
                 FROM Billetera b
                 WHERE b.ID_Persona = @ID_Ganador;
                 
-                -- Reembolsa a los perdedores
+                -- ✅ CORRECCIÓN 1: Reembolsa SOLO las pujas ACTIVAS (no las Superadas)
                 UPDATE Billetera 
                 SET Saldo_Disponible = Saldo_Disponible + p.Monto,
-                    Saldo_Reservado = Saldo_Reservado - p.Monto,
+                    -- ✅ CORRECCIÓN 2: Evita valores negativos en Saldo_Reservado
+                    Saldo_Reservado = CASE 
+                                        WHEN Saldo_Reservado >= p.Monto THEN Saldo_Reservado - p.Monto
+                                        ELSE 0  -- Evita valores negativos
+                                      END,
                     Fecha_Actualizacion = GETDATE()
                 FROM Billetera b
                 INNER JOIN Puja p ON b.ID_Persona = p.ID_Persona
                 WHERE p.ID_Subasta = @ID_Subasta
-                AND p.ID_Persona != @ID_Ganador;
+                AND p.ID_Persona != @ID_Ganador
+                AND p.Estado = @EstadoPujaActiva;  -- ✅ Solo pujas ACTIVAS
                 
-                -- Registra transacciones de reembolso
+                -- Registra transacciones de reembolso SOLO para pujas activas
                 INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
                 SELECT 
                     b.ID_Billetera,
@@ -928,11 +945,15 @@ BEGIN
                 FROM Billetera b
                 INNER JOIN Puja p ON b.ID_Persona = p.ID_Persona
                 WHERE p.ID_Subasta = @ID_Subasta
-                AND p.ID_Persona != @ID_Ganador;
+                AND p.ID_Persona != @ID_Ganador
+                AND p.Estado = @EstadoPujaActiva;  -- ✅ Solo pujas ACTIVAS
                 
-                -- Libera fondos reservados del ganador
+                -- ✅ CORRECCIÓN 3: Evita valores negativos en la liberación del ganador
                 UPDATE Billetera 
-                SET Saldo_Reservado = Saldo_Reservado - @Oferta_Ganadora,
+                SET Saldo_Reservado = CASE 
+                                        WHEN Saldo_Reservado >= @Oferta_Ganadora THEN Saldo_Reservado - @Oferta_Ganadora
+                                        ELSE 0  -- Evita valores negativos
+                                      END,
                     Fecha_Actualizacion = GETDATE()
                 WHERE ID_Persona = @ID_Ganador;
                 
@@ -942,14 +963,14 @@ BEGIN
                     ID_EstadoSubasta = @EstadoFinalizada
                 WHERE ID_Subasta = @ID_Subasta;
                 
-                -- Actualiza estado de pujas no ganadoras a "Reembolsada" ***
+                -- Actualiza estado de pujas no ganadoras a "Reembolsada"
                 UPDATE Puja 
                 SET Estado = @EstadoPujaReembolsada
                 WHERE ID_Subasta = @ID_Subasta 
                 AND ID_Persona != @ID_Ganador
                 AND Estado IN (@EstadoPujaActiva, @EstadoPujaGanadora, @EstadoPujaSuperada);
                 
-                --Mantiene el estado "Ganadora" solo para el ganador real 
+                -- Mantiene el estado "Ganadora" solo para el ganador real 
                 UPDATE Puja 
                 SET Estado = @EstadoPujaGanadora
                 WHERE ID_Subasta = @ID_Subasta 
@@ -979,7 +1000,7 @@ BEGIN
                 SET ID_EstadoSubasta = @EstadoFinalizada
                 WHERE ID_Subasta = @ID_Subasta;
                 
-                -- Para subastas sin ofertas, marcar todas las pujas (si existen) como Reembolsadas ***
+                -- Para subastas sin ofertas, marcar todas las pujas (si existen) como Reembolsadas
                 UPDATE Puja 
                 SET Estado = @EstadoPujaReembolsada
                 WHERE ID_Subasta = @ID_Subasta 
@@ -1013,8 +1034,6 @@ BEGIN
         DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
         DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
         DECLARE @ErrorState INT = ERROR_STATE();
-        
-        -- Muestra el Error
         
         RAISERROR ('Error en finalización de subastas: %s', @ErrorSeverity, @ErrorState, @ErrorMessage);
     END CATCH
