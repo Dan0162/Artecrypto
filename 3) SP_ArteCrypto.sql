@@ -499,7 +499,6 @@ BEGIN
     END
 
     -- Validación de competitividad: la oferta debe ser al menos la oferta mínima
-    -- (se aplica siempre para evitar aceptar montos por debajo del mínimo competitivo)
     IF @Monto < @OfertaMinima
     BEGIN
         DECLARE @Mensaje NVARCHAR(200);
@@ -620,6 +619,25 @@ BEGIN
             Fecha_Actualizacion = GETDATE()
         WHERE ID_Billetera = @ID_Billetera;
 
+        -- *** NUEVO: Registrar transacción en el historial de la billetera con Tipo_transacción = 6 ***
+        INSERT INTO Transaccion_Billetera (
+            ID_Billetera, 
+            ID_TipoTransaccion, 
+            ID_Subasta, 
+            Monto, 
+            Motivo, 
+            Fecha_Transaccion
+        )
+        VALUES (
+            @ID_Billetera,
+            6,  -- Tipo_transacción = 6 (Reserva para puja)
+            @ID_Subasta,
+            @MontoAReservar,
+            'Reserva de fondos para puja en subasta ID: ' + CAST(@ID_Subasta AS VARCHAR(10)) + 
+            CASE WHEN @PrevPujaID IS NOT NULL THEN ' (Actualización de puja)' ELSE ' (Nueva puja)' END,
+            GETDATE()
+        );
+
         -- Log de correo/confirmación al pujador 
         DECLARE @MensajeCorreo NVARCHAR(500);
         
@@ -634,7 +652,7 @@ BEGIN
         BEGIN
             SET @MensajeCorreo = '¡Felicidades! Su oferta de ' + CONVERT(VARCHAR(50), @Monto) + 
                                 ' ETH para la subasta ' + CONVERT(VARCHAR(20), @ID_Subasta) + 
-                                ' fue registrada como ganadora en ' + 
+                                ' ha sido recibida, y está en la cima!!!, mantengáse atento al transcurso de la subasta ' + 
                                 CONVERT(VARCHAR(20), GETDATE(), 120);
         END
 
@@ -764,6 +782,12 @@ BEGIN
         DECLARE @EstadoFinalizada INT = (SELECT ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Finalizada');
         DECLARE @EstadoActiva INT = (SELECT ID_EstadoSubasta FROM Estado_Subasta WHERE Nombre = 'Activa');
         
+        -- Obtener IDs de estados de puja
+        DECLARE @EstadoPujaActiva INT = (SELECT ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Activa');
+        DECLARE @EstadoPujaGanadora INT = (SELECT ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Ganadora');
+        DECLARE @EstadoPujaReembolsada INT = (SELECT ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Reembolsada');
+        DECLARE @EstadoPujaSuperada INT = (SELECT ID_EstadoPuja FROM Estado_Puja WHERE Nombre = 'Superada');
+        
         -- 2. Verificar primero si hay subastas para procesar
         IF NOT EXISTS (
             SELECT 1 
@@ -870,7 +894,7 @@ BEGIN
                 FROM Billetera b
                 WHERE b.ID_Persona = @ID_Artista;
                 
-                -- *** NUEVO: Registrar transacción de COMPRA para el ganador ***
+                -- Registra la transacción de Compra para el ganador ***
                 INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
                 SELECT 
                     b.ID_Billetera,
@@ -896,11 +920,11 @@ BEGIN
                 INSERT INTO Transaccion_Billetera (ID_Billetera, ID_TipoTransaccion, ID_Subasta, Monto, Fecha_Transaccion, Motivo)
                 SELECT 
                     b.ID_Billetera,
-                    (SELECT ID_TipoTransaccion FROM Tipo_Transaccion WHERE Nombre = 'Reembolso'),
+                    5,
                     @ID_Subasta,
                     p.Monto,
                     GETDATE(),
-                    'Reembolso por oferta no ganadora en: ' + @Nombre_NFT
+                    'Liberacion de fondos por oferta no ganadora en la subasta del: ' + @Nombre_NFT
                 FROM Billetera b
                 INNER JOIN Puja p ON b.ID_Persona = p.ID_Persona
                 WHERE p.ID_Subasta = @ID_Subasta
@@ -917,6 +941,20 @@ BEGIN
                 SET Oferta_Ganadora = @Oferta_Ganadora,
                     ID_EstadoSubasta = @EstadoFinalizada
                 WHERE ID_Subasta = @ID_Subasta;
+                
+                -- Actualiza estado de pujas no ganadoras a "Reembolsada" ***
+                UPDATE Puja 
+                SET Estado = @EstadoPujaReembolsada
+                WHERE ID_Subasta = @ID_Subasta 
+                AND ID_Persona != @ID_Ganador
+                AND Estado IN (@EstadoPujaActiva, @EstadoPujaGanadora, @EstadoPujaSuperada);
+                
+                --Mantiene el estado "Ganadora" solo para el ganador real 
+                UPDATE Puja 
+                SET Estado = @EstadoPujaGanadora
+                WHERE ID_Subasta = @ID_Subasta 
+                AND ID_Persona = @ID_Ganador
+                AND Monto = @Oferta_Ganadora;
                 
                 -- Registra notificaciones
                 INSERT INTO Correo_log (ID_Persona, Descripcion, Fecha_Envio)
@@ -936,12 +974,18 @@ BEGIN
             END
             ELSE
             BEGIN
-                -- Subasta sin ofertas
+                -- Caso de Subasta sin ofertas
                 UPDATE Subasta 
                 SET ID_EstadoSubasta = @EstadoFinalizada
                 WHERE ID_Subasta = @ID_Subasta;
                 
-                -- Notificar al artista
+                -- Para subastas sin ofertas, marcar todas las pujas (si existen) como Reembolsadas ***
+                UPDATE Puja 
+                SET Estado = @EstadoPujaReembolsada
+                WHERE ID_Subasta = @ID_Subasta 
+                AND Estado IN (@EstadoPujaActiva, @EstadoPujaGanadora, @EstadoPujaSuperada);
+                
+                -- Notifica al artista
                 INSERT INTO Correo_log (ID_Persona, Descripcion, Fecha_Envio)
                 VALUES (@ID_Artista, 'Lamentamos informarte que tu subasta de "' + @Nombre_NFT + '" ha terminado sin ofertas.', GETDATE());
             END
@@ -965,12 +1009,12 @@ BEGIN
         IF @@TRANCOUNT > 0
             ROLLBACK TRANSACTION;
         
-        -- Registrar error detallado
+        -- Registra el error detallado
         DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
         DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
         DECLARE @ErrorState INT = ERROR_STATE();
         
-        -- Insertar en log de errores
+        -- Muestra el Error
         
         RAISERROR ('Error en finalización de subastas: %s', @ErrorSeverity, @ErrorState, @ErrorMessage);
     END CATCH

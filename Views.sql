@@ -80,12 +80,14 @@ SELECT
     pc.TotalOfertas AS [Total de ofertas realizadas],
     pc.SubastasGanadas AS [Subastas ganadas],
     pc.MontoInvertido AS [Monto total invertido],
-    FORMAT((pc.SubastasGanadas * 100.0 / ISNULL(pc.TotalOfertas, 0)), 'N2') AS [Tasa de éxito (%)],
-    FORMAT(CAST(pc.TotalOfertas AS DECIMAL(10, 2)) / ISNULL(pc.SubastasParticipadas, 0), 'N2') AS [Promedio de ofertas por subasta]
+    -- ✅ Modificación: Tasa de éxito basada en subastas participadas
+    FORMAT((pc.SubastasGanadas * 100.0 / NULLIF(pc.SubastasParticipadas, 0)), 'N2') AS [Tasa de éxito (%)],
+    FORMAT(CAST(pc.TotalOfertas AS DECIMAL(10, 2)) / NULLIF(pc.SubastasParticipadas, 0), 'N2') AS [Promedio de ofertas por subasta]
 FROM PujasXColeccionista pc
 INNER JOIN Persona pe ON pc.ID_Persona = pe.ID_Persona
 INNER JOIN RegistroColeccionista rc ON pc.ID_Persona = rc.ID_Persona;
 GO
+
 
 -- ============================================================================
 -- VIEW 3: VALORACIÓN DE LOS ARTISTAS

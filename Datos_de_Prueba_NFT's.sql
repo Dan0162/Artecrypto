@@ -51,6 +51,7 @@ INSERT INTO Entidad_Rol (ID_Persona, ID_TipoEntidad, Fecha_Registro) VALUES
 (20,1, GETDATE());  -- Tomás Tipografía
 
 --Crear y dar saldo a la billeteras
+--A los coleccionistas
 INSERT INTO Billetera (ID_Persona, Saldo_Disponible, Saldo_Reservado)
 SELECT
     er.ID_Persona,
@@ -60,6 +61,24 @@ FROM Entidad_Rol er
 WHERE
     -- 1. Busca el ID del rol 'Coleccionista'
     er.ID_TipoEntidad = (SELECT ID_TipoEntidad FROM Tipo_Entidad WHERE Nombre = 'Coleccionista')
+AND NOT EXISTS (
+    -- 2. Y que NO exista ya en la tabla Billetera
+    SELECT 1
+    FROM Billetera b
+    WHERE b.ID_Persona = er.ID_Persona
+);
+GO
+
+--A los artistas
+INSERT INTO Billetera (ID_Persona, Saldo_Disponible, Saldo_Reservado)
+SELECT
+    er.ID_Persona,
+    0.00, -- Saldo inicial
+    0.00  -- Reservado inicial
+FROM Entidad_Rol er
+WHERE
+    -- 1. Busca el ID del rol 'Coleccionista'
+    er.ID_TipoEntidad = (SELECT ID_TipoEntidad FROM Tipo_Entidad WHERE Nombre = 'Artista')
 AND NOT EXISTS (
     -- 2. Y que NO exista ya en la tabla Billetera
     SELECT 1

@@ -31,7 +31,8 @@ INSERT INTO Tipo_Transaccion (Nombre) VALUES
 ('Retiro'),
 ('Pago'),
 ('Compra'),
-('Reembolso');
+('Liberación'),
+('Reservación');
 
 -- Seed: Formato
 INSERT INTO Formato (Nombre) VALUES
